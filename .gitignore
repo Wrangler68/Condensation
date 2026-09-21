@@ -7,6 +7,9 @@ __pycache__/
 tmp/
 __marimo__/
 *.pdf
+!Xie-2020-Mixed dropwise-filmwise condensation.pdf
+!Croce-2024-Optimization-of-dropwise-condensati.pdf
+!Lee-2020-Improved humid air condensation heat.pdf
 output/
 .env
 .uv-tools/

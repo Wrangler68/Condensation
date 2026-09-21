@@ -13,7 +13,7 @@ import marimo
 
 __generated_with = "0.24.2"
 app = marimo.App(
-    width="medium",
+    width="wide",
     app_title="HeatTransfer · Biphilic condensation",
 )
 
@@ -46,27 +46,55 @@ def _(mo):
             + "</div>"
         )
 
+    def show(fig):
+        # The mode bar sits on the title until hover. responsive keeps the
+        # plot inside the column when the outline opens or the viewport shrinks.
+        return mo.ui.plotly(
+            fig,
+            config={
+                "displayModeBar": "hover",
+                "displaylogo": False,
+                "responsive": True,
+            },
+        )
+
     from types import SimpleNamespace
 
-    ht_layout = SimpleNamespace(row=_row, controls=_controls)
+    ht_layout = SimpleNamespace(row=_row, controls=_controls, show=show)
     return (ht_layout,)
 
 
 @app.cell
 def _(mo):
-    mo.md("""
-    # HeatTransfer · Biphilic condensation laboratory
-    **Xie 2020 · Croce 2024 · Lee 2020**
+    mo.vstack(
+        [
+            mo.Html(
+                "<style>"
+                ".katex-display{overflow-x:auto;overflow-y:hidden;max-width:100%;"
+                "padding-bottom:.2rem;margin:.55rem 0;}"
+                "marimo-tex{max-width:100%;}"
+                "@media (max-width:720px){h1,h2,h3{padding-left:2.6rem;padding-right:.4rem;}}"
+                "</style>"
+            ),
+            mo.md("""
+            # HeatTransfer · Biphilic condensation laboratory
+            **Xie 2020 · Croce 2024 · Lee 2020**
 
-    One self-contained notebook: NumPy, SciPy, Plotly and Autograd.
-    Use the outline to move between the three papers, design searches, numerical checks,
-    extended figure studies, and the equation/reference sections. Submit each form to recalculate.
-
-    **Scope:** numerically verified reduced models, not complete experimental reproductions.
-    Croce Fig. 7a remains discrepant by 27–39%; the 10 mm disk radius is an unconfirmed assumption.
-    Lee's humid-air mass objective is distinct from the steam heat-flux objectives.
-    Browser execution can take a little longer, especially for searches and extended studies.
-    """)
+            One self-contained notebook: NumPy, SciPy, Plotly and Autograd.
+            Use the outline to move between the three papers, design searches, numerical checks,
+            extended figure studies, and the equation section. Submit each form to recalculate.
+            """),
+            mo.callout(
+                mo.md(
+                    "**Scope.** Numerically verified reduced models, not complete experimental "
+                    "reproductions. Croce Fig. 7a remains discrepant by 27–39%. The 10 mm disk "
+                    "radius is an unconfirmed assumption. Lee's humid-air mass is a separate "
+                    "objective from the steam heat-flux models."
+                ),
+                kind="warn",
+            ),
+        ]
+    )
     return
 
 
@@ -1312,23 +1340,62 @@ def _():
         COLORS = ["#0f766e", "#e97935", "#4969b1", "#ad4a80", "#718096"]
 
         def style(fig, title, xlabel=None, ylabel=None):
+            named = [trace for trace in fig.data if getattr(trace, "name", None)]
+            has_colorbar = any(getattr(trace, "type", "") == "heatmap" for trace in fig.data)
+            # One legend row holds about three short names; reserve space per row
+            # so the legend stays below the axis title instead of covering it.
+            legend_rows = max(1, (len(named) + 2) // 3) if named else 0
             fig.update_layout(
-                title=dict(text=title, font=dict(size=16), automargin=True),
+                title=dict(
+                    text=title,
+                    font=dict(size=16),
+                    x=0,
+                    xanchor="left",
+                    automargin=True,
+                ),
                 template="plotly_white",
                 colorway=COLORS,
-                font=dict(family="Arial", color="#24364b"),
+                font=dict(family="Arial, Helvetica, sans-serif", size=13, color="#1f3348"),
                 paper_bgcolor="#ffffff",
                 plot_bgcolor="#ffffff",
                 autosize=True,
-                height=360,
-                margin=dict(l=55, r=20, t=55, b=55),
-                legend=dict(orientation="h", y=-0.25, x=0, yanchor="top"),
+                height=420,
+                margin=dict(
+                    l=72,
+                    r=108 if has_colorbar else 28,
+                    t=62,
+                    b=56 + 28 * legend_rows,
+                ),
+                showlegend=bool(named),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    yref="container",
+                    y=0,
+                    x=0,
+                    xref="paper",
+                    xanchor="left",
+                    font=dict(size=12),
+                    bgcolor="rgba(255,255,255,0.94)",
+                ),
                 hovermode="x unified",
+                hoverlabel=dict(bgcolor="#ffffff", font=dict(size=12)),
             )
-            if xlabel:
-                fig.update_xaxes(title_text=xlabel, automargin=True)
-            if ylabel:
-                fig.update_yaxes(title_text=ylabel, automargin=True)
+            axis = dict(
+                automargin=True,
+                showline=True,
+                linewidth=1,
+                linecolor="#d5dee8",
+                mirror=False,
+                gridcolor="#e7eef5",
+                zeroline=False,
+                title_standoff=12,
+                ticks="outside",
+                tickcolor="#d5dee8",
+                ticklen=4,
+            )
+            fig.update_xaxes(title_text=xlabel or "", **axis)
+            fig.update_yaxes(title_text=ylabel or "", **axis)
             return fig
 
         def curves(x, series, title, xlabel, ylabel, logx=False, logy=False):
@@ -1342,22 +1409,26 @@ def _():
                 fig.update_yaxes(type="log")
             return fig
 
-        def stripe_schematic(ld, lf, height=0.004):
+        def stripe_schematic(ld, lf):
             fig = go.Figure()
             pitch = ld + lf
+            span = 4 * pitch * 1e3
+            hydrophobic = "#c5d8ea"
+            hydrophilic = "#0f766e"
             for i in range(4):
                 for start, end, color in (
-                    (i * pitch, i * pitch + ld, "#dbe7f0"),
-                    (i * pitch + ld, (i + 1) * pitch, "#0f766e"),
+                    (i * pitch, i * pitch + ld, hydrophobic),
+                    (i * pitch + ld, (i + 1) * pitch, hydrophilic),
                 ):
                     fig.add_shape(
                         type="rect",
                         x0=start * 1e3,
                         x1=end * 1e3,
                         y0=0,
-                        y1=height * 1e3,
+                        y1=span,
                         fillcolor=color,
-                        line=dict(width=0),
+                        line=dict(color="#ffffff", width=1),
+                        layer="below",
                     )
             fig.add_trace(
                 go.Scatter(
@@ -1365,7 +1436,7 @@ def _():
                     y=[None],
                     mode="markers",
                     name="Hydrophobic / DWC",
-                    marker=dict(color="#b9d0e2", size=12),
+                    marker=dict(color=hydrophobic, size=12, line=dict(color="#4d6d86", width=1.5)),
                 )
             )
             fig.add_trace(
@@ -1374,19 +1445,39 @@ def _():
                     y=[None],
                     mode="markers",
                     name="Hydrophilic / FWC",
-                    marker=dict(color="#0f766e", size=12),
+                    marker=dict(color=hydrophilic, size=12),
                 )
             )
             style(fig, "Stripe geometry · four periods", "Across surface (mm)", "Downhill (mm)")
-            fig.update_xaxes(range=[0, 4 * pitch * 1e3])
-            fig.update_yaxes(range=[height * 1e3, 0])
-            fig.update_layout(height=280, margin=dict(b=100), legend=dict(y=-0.6))
+            fig.update_xaxes(range=[0, span], constrain="domain")
+            # 0 at the top: condensate runs downhill. Equal data ranges keep the stripes to scale.
+            fig.update_yaxes(range=[span, 0], scaleanchor="x", scaleratio=1)
+            fig.update_layout(height=460)
             return fig
 
         def heatmap(x, y, z, title, xlabel, ylabel, zlabel):
+            def _blank_nan(value):
+                if isinstance(value, (list, tuple)):
+                    return [_blank_nan(item) for item in value]
+                if hasattr(value, "tolist"):
+                    return _blank_nan(value.tolist())
+                return None if isinstance(value, float) and value != value else value
+
             fig = go.Figure(
                 go.Heatmap(
-                    x=x, y=y, z=z, colorscale="Teal", colorbar=dict(title=zlabel), hoverongaps=False
+                    x=x,
+                    y=y,
+                    z=_blank_nan(z),
+                    colorscale="Teal",
+                    colorbar=dict(
+                        title=dict(text=zlabel, side="right"),
+                        thickness=14,
+                        len=0.78,
+                        outlinewidth=0,
+                        tickfont=dict(size=11),
+                    ),
+                    hoverongaps=False,
+                    showscale=True,
                 )
             )
             return style(fig, title, xlabel, ylabel)
@@ -1395,16 +1486,19 @@ def _():
             fig = go.Figure()
             for case in dict.fromkeys(row["case"] for row in rows):
                 selected = [r for r in rows if r["case"] == case]
+                short = case.replace("Croce ", "").replace("Xie ", "")
                 x = [r["subcooling_K"] for r in selected]
                 fig.add_trace(
                     go.Scatter(
                         x=x,
                         y=[r["paper_flux_W_m2"] / 1000 for r in selected],
-                        name=case + " · paper curve",
+                        name=short + " · paper",
                         mode="markers",
                         error_y=dict(
                             type="data",
                             array=[r["reading_uncertainty_W_m2"] / 1000 for r in selected],
+                            thickness=1.2,
+                            width=5,
                         ),
                     )
                 )
@@ -1412,7 +1506,7 @@ def _():
                     go.Scatter(
                         x=x,
                         y=[r["computed_flux_W_m2"] / 1000 for r in selected],
-                        name=case + " · implemented",
+                        name=short + " · model",
                         mode="lines+markers",
                     )
                 )
@@ -1646,7 +1740,7 @@ def _(ht_plots, ht_studies, ht_types, ht_xie2020):
 @app.cell
 def _(s1_mo):
     s1_mo.md(
-        "\n    # Suction, sliding, and the liquid film\n    **Xie et al. · 2020** / Steam condensation on vertical biphilic stripes\n\n    Follow condensate from a growing droplet to its departure mode and the hydrophilic channel.\n    [Paper](https://doi.org/10.1016/j.ijheatmasstransfer.2019.119273) · SI calculations, display units below.\n\n    The default restores the Kim–Kim liquid resistance. The printed Eq. (11) contains an\n    extra π and gives substantially higher flux than the published curves. Both are available.\n    Disk radius **10 mm** is an unconfirmed specimen assumption. This model does not predict flooding.\n    "
+        "\n    # Suction, sliding, and the liquid film\n    **Xie et al. · 2020** / Steam condensation on vertical biphilic stripes\n\n    Follow condensate from a growing droplet to its departure mode and the hydrophilic channel.\n    [Paper](https://doi.org/10.1016/j.ijheatmasstransfer.2019.119273) · SI calculations, display units below.\n\n    The default restores the Kim–Kim liquid resistance. The printed Eq. (11) contains an\n    extra π and gives substantially higher flux than the published curves. Both are available.\n    Coating conductivity is 0.2 W/m·K. Disk radius **10 mm** is an unconfirmed specimen assumption.\n    This model does not predict flooding.\n    "
     )
     return
 
@@ -1661,7 +1755,7 @@ def _(ht_layout, s1_mo):
                 "lf": s1_mo.ui.number(0.05, 3.0, step=0.05, value=0.2, label="FWC width (mm)"),
                 "dt": s1_mo.ui.slider(1.0, 10.0, step=0.5, value=5.0, label="Subcooling (K)"),
                 "coating": s1_mo.ui.number(
-                    0.0, 1000.0, step=1.0, value=1.0, label="Coating thickness (nm), k = 0.2 W/mK"
+                    0.0, 1000.0, step=1.0, value=1.0, label="Coating thickness (nm)"
                 ),
                 "mode": s1_mo.ui.dropdown(
                     ["dss", "oss", "mixed"], value="mixed", label="Departure model"
@@ -1752,8 +1846,10 @@ def _(ht_layout, s1_curves, s1_geometry, s1_mo, s1_profile, s1_stripe_schematic)
     )
     s1_mo.vstack(
         [
-            s1_mo.ui.plotly(s1_geometry_chart),
-            ht_layout.row([s1_mo.ui.plotly(s1_radius_chart), s1_mo.ui.plotly(s1_flux_chart)], minimum=420),
+            ht_layout.show(s1_geometry_chart),
+            ht_layout.row(
+                [ht_layout.show(s1_radius_chart), ht_layout.show(s1_flux_chart)], minimum=420
+            ),
         ]
     )
     return
@@ -1761,6 +1857,7 @@ def _(ht_layout, s1_curves, s1_geometry, s1_mo, s1_profile, s1_stripe_schematic)
 
 @app.cell
 def _(
+    ht_layout,
     s1_conditions,
     s1_curves,
     s1_geometry,
@@ -1792,19 +1889,21 @@ def _(
         "Heat flux (kW/m²)",
         True,
     )
-    s1_mo.ui.plotly(s1_width_chart)
+    ht_layout.show(s1_width_chart)
     return
 
 
 @app.cell
-def _(s1_benchmark_plot, s1_figure_checks, s1_mo):
+def _(ht_layout, s1_benchmark_plot, s1_figure_checks, s1_mo):
     s1_benchmarks = [s1_r for s1_r in s1_figure_checks() if s1_r["case"].startswith("Xie")]
     s1_mo.vstack(
         [
             s1_mo.md(
-                "### Published-curve check\nApproximate readings of Fig. 5a's model line, not raw experimental data. Fixed paper preset; independent of the controls above."
+                "### Published-curve check\nApproximate readings of Fig. 5a's model line, not raw experimental data. Whiskers are the reading uncertainty. Fixed paper preset; independent of the controls above."
             ),
-            s1_benchmark_plot(s1_benchmarks, "Xie Fig. 5a · Kim–Kim resistance convention"),
+            ht_layout.show(
+                s1_benchmark_plot(s1_benchmarks, "Xie Fig. 5a · Kim–Kim resistance convention")
+            ),
         ]
     )
     return
@@ -2048,12 +2147,15 @@ def _(
         True,
         True,
     )
-    ht_layout.row([s2_mo.ui.plotly(s2_populations), s2_mo.ui.plotly(s2_resistances)], minimum=420)
+    ht_layout.row(
+        [ht_layout.show(s2_populations), ht_layout.show(s2_resistances)], minimum=420
+    )
     return
 
 
 @app.cell
 def _(
+    ht_layout,
     s2_conditions,
     s2_curves,
     s2_geometry,
@@ -2082,19 +2184,19 @@ def _(
         "Distance from top (mm)",
         "Thickness (µm)",
     )
-    s2_mo.ui.plotly(s2_film_plot)
+    ht_layout.show(s2_film_plot)
     return
 
 
 @app.cell
-def _(s2_benchmark_plot, s2_figure_checks, s2_mo):
+def _(ht_layout, s2_benchmark_plot, s2_figure_checks, s2_mo):
     s2_checks = [s2_r for s2_r in s2_figure_checks() if s2_r["case"].startswith("Croce")]
     s2_mo.vstack(
         [
             s2_mo.md(
-                "### Reproduction audit\nPaper model curves were read approximately with conservative reading uncertainty. The disagreement is retained; no coefficient was fitted to conceal it. Fixed figure presets are independent of the controls."
+                "### Reproduction audit\nPaper model curves were read approximately. Whiskers are the reading uncertainty. The disagreement is retained; no coefficient was fitted to conceal it. Fixed figure presets are independent of the controls."
             ),
-            s2_benchmark_plot(s2_checks, "Published curves vs implemented equations"),
+            ht_layout.show(s2_benchmark_plot(s2_checks, "Published curves vs implemented equations")),
             s2_mo.ui.table(s2_checks),
         ]
     )
@@ -2261,7 +2363,7 @@ def _(ht_layout, s3_curves, s3_go, s3_mo, s3_model, s3_np, s3_result, s3_style):
         )
     )
     s3_style(s3_bars, "Recovery contributions", ylabel="Collected mass (g / 4 h)")
-    ht_layout.row([s3_mo.ui.plotly(s3_recovery_plot), s3_mo.ui.plotly(s3_bars)], minimum=420)
+    ht_layout.row([ht_layout.show(s3_recovery_plot), ht_layout.show(s3_bars)], minimum=420)
     return
 
 
@@ -2275,7 +2377,10 @@ def _(s3_mo, s3_result):
             ),
             s3_mo.ui.table(
                 [
-                    {"quantity": s3_key, "value": s3_value}
+                    {
+                        "quantity": s3_key,
+                        "value": f"{s3_value:.6g}" if isinstance(s3_value, float) else s3_value,
+                    }
                     for s3_key, s3_value in s3_transport.items()
                 ]
             ),
@@ -2398,8 +2503,8 @@ def _(s4_SteamConditions, s4_Surface, s4_controls, s4_croce_heatmap, s4_np):
 
 
 @app.cell
-def _(s4_flux_map, s4_heatmap, s4_ld_values, s4_lf_values, s4_mo):
-    s4_design_map = s4_mo.ui.plotly(
+def _(ht_layout, s4_flux_map, s4_heatmap, s4_ld_values, s4_lf_values, s4_mo):
+    s4_design_map = ht_layout.show(
         s4_heatmap(
             s4_ld_values * 1000.0,
             s4_lf_values * 1000.0,
@@ -2423,6 +2528,7 @@ def _(s4_flux_map, s4_heatmap, s4_ld_values, s4_lf_values, s4_mo):
 
 @app.cell
 def _(
+    ht_layout,
     s4_croce2024,
     s4_go,
     s4_mo,
@@ -2452,7 +2558,7 @@ def _(
     )
     s4_mo.vstack(
         [
-            s4_mo.ui.plotly(s4_sensitivity_plot),
+            ht_layout.show(s4_sensitivity_plot),
             s4_mo.md(
                 "Sensitivities use a **20 mm tall rectangular plate**, widths 0.55 / 0.60 mm, and fixed 100 °C fluid properties. Nucleation and film roots are implicitly differentiated. This smooth extension avoids discrete disk stripe counts; it is not the paper's disk optimization."
             ),
@@ -2463,6 +2569,7 @@ def _(
 
 @app.cell
 def _(
+    ht_layout,
     s4_Geometry,
     s4_conditions,
     s4_croce2024,
@@ -2495,7 +2602,7 @@ def _(
     )
     s4_mo.vstack(
         [
-            s4_mo.ui.plotly(s4_comparison_plot),
+            ht_layout.show(s4_comparison_plot),
             s4_mo.md(
                 "Both curves use 100 °C saturation properties, the selected subcooling/coating, a 10 mm radius, and 0.45 mm FWC stripes. Departure, nucleation, population and film assumptions remain paper-specific."
             ),
@@ -2839,14 +2946,11 @@ def _(
 
 @app.cell
 def _(mo):
-    mo.md(
-        "## Numerical verification\nRun the embedded regression suite: quadrature, conservation, limiting cases, implicit gradients, flooding, and constrained optimization. Assertion failures stop the check; passing does not resolve the publication discrepancies."
-    )
     check_button = mo.ui.run_button(label="Run all numerical checks")
     mo.vstack(
         [
             mo.md(
-                "## Numerical verification\nRun the embedded regression suite: quadrature, conservation, limiting cases, implicit gradients, flooding, and optimization."
+                "## Numerical verification\nRun the embedded regression suite: quadrature, conservation, limiting cases, implicit gradients, flooding, and constrained optimization. An assertion failure stops the check. A pass does not remove the publication discrepancies."
             ),
             check_button,
         ]
@@ -3090,16 +3194,13 @@ def _(
 
 @app.cell
 def _(mo):
-    mo.md(
-        "## Extended paper figure studies\nOptional, longer calculations: coating/nucleation, single drops, regimes and departure modes. These retain the original sampled grids and assumptions; they are not exact reproductions of the paper figures."
-    )
     study_form = mo.ui.dropdown(["Croce", "Xie"], value="Croce", label="Paper study").form(
         submit_button_label="Generate extended studies"
     )
     mo.vstack(
         [
             mo.md(
-                "## Extended paper figure studies\nOptional longer calculations using the original sampled grids and assumptions."
+                "## Extended paper figure studies\nOptional longer calculations: coating, nucleation, single drops, regimes and departure modes. The sampled grids follow the papers. These are studies of the implemented equations, not exact copies of the published artwork."
             ),
             study_form,
         ]
@@ -3108,7 +3209,7 @@ def _(mo):
 
 
 @app.cell
-def _(ht_figure_studies, mo, study_form):
+def _(ht_figure_studies, ht_layout, mo, study_form):
     mo.stop(
         study_form.value is None,
         mo.md("Choose a paper and generate its extended studies when needed."),
@@ -3119,7 +3220,7 @@ def _(ht_figure_studies, mo, study_form):
             mo.vstack(
                 [
                     mo.md("### " + name),
-                    mo.ui.plotly(fig),
+                    ht_layout.show(fig),
                     mo.download(
                         record.encode(), filename=name + ".json", label="Download study data"
                     ),
@@ -3136,61 +3237,178 @@ def _(mo):
     mo.md(r"""
     ## Equations and conventions
 
-    All radii and widths are meters; heat rate Q is W, heat flux q is W/m2, HTC is W/m2/K. All trigonometric inputs use radians. Thermodynamic temperature is Kelvin; Lee's saturation polynomial uses Celsius. Geometry inputs distinguish spherical-cap curvature radius from footprint radius r sin(theta).
+    Radii and widths are meters. Heat rate \(Q\) is W, heat flux \(q\) is W/m\(^{2}\), and the heat-transfer coefficient is W/m\(^{2}\)K. Trigonometric arguments are radians. Thermodynamic temperature is kelvin; Lee's humidity polynomial takes Celsius. A symbol \(r\) is the spherical-cap curvature radius. The footprint radius is \(r\sin\theta\).
+
+    Shared single-drop quantities, with accommodation coefficient \(\sigma=1\):
+
+    \[
+    r_{0}=\frac{2T_{\mathrm{sat}}\sigma_{lv}}{\rho_{l}h_{lv}\Delta T},\qquad
+    \alpha_{i}=\frac{2\sigma}{2-\sigma}\frac{1}{\sqrt{2\pi R_{g}T_{\mathrm{sat}}}}\frac{\rho_{v}h_{lv}^{2}}{T_{\mathrm{sat}}}
+    \]
+
+    \[
+    Q_{\mathrm{Kim}}=\frac{\pi r^{2}\Delta T\,(1-r_{0}/r)}{\dfrac{\delta}{\lambda\sin^{2}\theta}+\dfrac{\theta r}{4\lambda_{l}\sin\theta}+\dfrac{1}{2\alpha_{i}(1-\cos\theta)}}
+    \]
+
+    The interface identity \(\sin^{2}\theta/[2\alpha_{i}(1-\cos\theta)]=(1+\cos\theta)/(2\alpha_{i})\) is used when a paper writes the resistance on the wetted base. Gravity in the shared property table is \(9.81\,\mathrm{m/s^{2}}\). Xie states \(9.8\,\mathrm{m/s^{2}}\); the difference is about one part in a thousand.
 
     ## Xie 2020
 
-    | Equations | Implemented behavior | Audit decision |
-    |---|---|---|
-    | 1-2 | Area-weighted DWC/FWC heat flux and HTC | Region heat fluxes are reported before area weighting |
-    | 3-7 | DSS, OSS, and min(OSS, gravity sliding) | Suction region is separated from sliding region for liquid transfer |
-    | 8-10 | Two population integrals; r0 from curvature; rc=1/(2 sqrt(Nc)) | Nc=2.5e11 m^-2 in presets |
-    | 11 | Single-cap heat rate | Printed denominator has theta sin(theta)/(4 pi) times r/k. Restoring Kim–Kim removes the extra pi. Default is `kim`; `xie` retains the printed denominator and uses a consistent growth law for that denominator. This is a disclosed convention, not an author-confirmed erratum |
-    | 12-13 | Constant-sweeping small population; Le Fevre–Rose large population | Population balance solved analytically; matching value and logarithmic slope -8/3 are tested |
-    | 14-15 | Half-stripe spatial average and q/DT | Midpoint cells, split exactly at the suction/sliding boundary, with default dx<=1 micrometer. Paper uses right-grid locations; midpoint is a numerical improvement. Cap-radius limits follow Eq.6, resolving inconsistent x-vs-r notation in Eq.14 |
-    | 16-24 | Approximate disk area fractions, transferred-liquid accounting, positive film-thickness root | Only suction-produced condensate enters the channel. Interfacial resistance is retained in film HTC |
+    Area weighting, with region fluxes reported before weighting. \(q^{*}\) is only the suction part of the hydrophobic flux:
 
-    At rmax<rc the small distribution retains its prescribed matching radius rc and is truncated at rmax. This near-boundary extension is documented and checked by spatial refinement. For rmax<=r0 no local condensate heat is assigned. No claim is made that this microscopic edge treatment is independently validated.
+    \[
+    q=f_{\mathrm{DWC}}q_{\mathrm{DWC}}+(1-f_{\mathrm{DWC}})q_{\mathrm{FWC}},\qquad
+    f_{\mathrm{DWC}}=\frac{W_{\mathrm{DWC}}}{W_{\mathrm{DWC}}+W_{\mathrm{FWC}}}
+    \]
 
-    Pure-FWC endpoint uses the standard mean Nusselt vertical-plate law; this is an explicit endpoint extension. Pure DWC uses the selected departure law. No condensation at DT=0 returns zero without evaluating singular critical-radius formulas.
+    Departure radii. The critical stripe width is where double-sided suction meets sliding:
+
+    \[
+    r_{\max,1}=\frac{W_{\mathrm{DWC}}}{2\sin\theta},\qquad
+    r_{\max,2}=\frac{x}{\sin\theta},\qquad
+    r_{\max,3}=\min\!\left(\frac{x}{\sin\theta},\,r_{\mathrm{slide}}\right)
+    \]
+
+    \[
+    r_{\mathrm{slide}}=\sqrt{\frac{12}{\pi^{2}}\frac{\sin\theta\,(\cos\theta_{r}-\cos\theta_{a})}{2-3\cos\theta+\cos^{3}\theta}\frac{\sigma_{lv}}{(\rho_{l}-\rho_{v})g}}
+    \]
+
+    \[
+    W_{\mathrm{DWC},c}=2r_{\mathrm{slide}}\sin\theta,\qquad
+    r_{c}=\frac{1}{2\sqrt{N_{c}}},\qquad N_{c}=2.5\times 10^{11}\,\mathrm{m^{-2}}
+    \]
+
+    Printed single-drop rate, Eq. (11). The liquid term contains an extra \(\pi\) relative to Kim and Kim. The default `kim` option removes that factor. The `xie` option keeps the printed denominator and the growth law consistent with it:
+
+    \[
+    Q_{\mathrm{Xie}}=\frac{\pi r^{2}\sin^{2}\theta\left(\Delta T-\dfrac{2T_{\mathrm{sat}}\sigma_{lv}}{h_{lv}\rho_{l}r}\right)}{\dfrac{1+\cos\theta}{2h_{i}}+\dfrac{\theta\sin\theta}{4\pi}\dfrac{r}{\lambda_{l}}+\dfrac{\delta}{\lambda}}
+    \]
+
+    The small-drop population uses a constant sweeping time. Its value and logarithmic slope \(-8/3\) match the Le Fevre–Rose large-drop distribution at \(r_{c}\). Spatial averages use midpoint cells, split on the suction boundary, with \(\Delta x\le 1\,\mu\mathrm{m}\). The paper samples the right edge of each cell. If \(r_{\max}<r_{c}\), the small distribution keeps the reference radius \(r_{c}\) and is cut off at \(r_{\max}\). If \(r_{\max}\le r_{0}\), that cell contributes no condensate.
+
+    Uniform film on the disk, Eqs. (22)–(24). Only suction condensate enters the channel, and the interface resistance stays in the film coefficient:
+
+    \[
+    \delta=\left[\frac{3\pi R\mu_{l}}{2\rho_{l}^{2}gh_{lv}}\left(\frac{W_{\mathrm{DWC}}}{W_{\mathrm{FWC}}}q^{*}+h_{\mathrm{FWC}}\Delta T\right)\right]^{1/3}
+    \]
+
+    \[
+    h_{\mathrm{FWC}}=\left(\frac{1}{h_{i}}+\frac{\delta}{\lambda_{l}}\right)^{-1}
+    \]
+
+    A pure hydrophilic endpoint uses the mean Nusselt vertical-plate flux with coefficient \(0.943\). That endpoint is an extension. \(\Delta T=0\) returns zero and does not evaluate the singular critical radius.
 
     ## Croce 2024
 
-    | Equations | Implemented behavior | Audit decision |
-    |---|---|---|
-    | 1-6 | Stripe-imposed rmax, area weighting, single-drop resistances, integrated populations | Uses the published cap-radius definition and Le Fevre distribution |
-    | 7-8 | n = ne Ge/G exp(integral dr/(G tau)) | The printed Eq.8 omits exp; otherwise n(re)=0, contradicting n(re)=ne. Correction follows direct integration of Eq.7 |
-    | 9-14 | G=A(r-r0)/(r(r+B)); tau proportional to r | B includes `2*k_l*sin(theta)/(alpha_i*theta*(1-cos(theta)))`; alpha_i is absent in printed Eq.13. Derived from Eq.9 and dimensions. Eq.14 is consistent with slope matching once B is corrected |
-    | 15-16 | Availability maximum determines rn; rho_n=.037/rn^2; re=rn/(2 sqrt(.037)) | Dimensionless log-radius root of the availability derivative; negative curvature is tested. Angular factor `(1-cos(phi))^2/sin(phi)^4` is evaluated as `1/(1+cos(phi))^2` |
-    | 17-19 | Circular-section rivulet, parabolic velocity | F_theta calculated by cross-section quadrature, avoiding cancellation at small angle. Verified F(0)=16/35 and flooding flow at theta=pi/2 |
-    | 20-24 | Endpoint-angle, iterated analytical film closure | Evaluate the integral equivalent of Eq.23: `H = F*rho*(rho-rhov)*g/mu * integral_0^delta t^3/(a+b*t) dt`, with `a=k*DT*sinc(theta)/hfg`, `b=migration/LF`, theta from endpoint delta. This also handles migration=0 without subtractive cancellation |
-    | 25 | Flooding at delta=LF/2 | Require H<=H_flood. Report H/H_flood as flooding_ratio; it is a height ratio, not a mass-flow ratio. Beyond the limit return undefined flux rather than continue the pre-flood formula |
-    | 26-27 | Migration=qD LD/hfg; qF=(outflow-migration H)hfg/(H LF) | Transferred condensate is subtracted to avoid counting its latent heat twice |
-    | 28 | Pure-DWC gravity departure | Implemented as printed; Fig.7 comparison explicitly fixes rmax=1.25 mm as its caption specifies |
-    | 29 | Center-height weighted disk stripes | Integer stripe loop uses floor(2R/pitch), and only centers inside the disk are retained. Edge-area fractions remain the paper approximation |
+    Hydrophobic stripes impose \(r_{\max}=W_{\mathrm{DWC}}/(2\sin\theta)\). The drop rate is \(Q_{\mathrm{Kim}}\). The large-drop distribution is
 
-    The general variable-angle derivative of mass flow is **not** substituted for the paper's locally fixed-angle closure: it would define a different film model. The rectangular-plate function is separately named `smooth_plate_flux` and labeled as an extension in the UI.
+    \[
+    N(r)=\frac{1}{3\pi r^{2}r_{\max}}\left(\frac{r_{\max}}{r}\right)^{2/3}.
+    \]
 
-    **Unresolved:** Fig.7a disagreement (about +27 to +39% at sampled DT) is not removed by quadrature refinement. The shared Kim–Kim implementation independently matches DWCmod, but that does not validate the revised Croce distribution/nucleation combination. Original author code or clarification is needed before claiming complete reproduction. The model is left auditable rather than empirically rescaled.
+    Printed Eq. (8) omits the exponential, which would force \(n(r_{e})=0\). Direct integration of Eq. (7), and printed Eq. (11), give
+
+    \[
+    n(r)=n(r_{e})\,\frac{G_{e}}{G}\exp\!\left(\int_{r}^{r_{e}}\frac{\mathrm{d}r'}{G\tau}\right).
+    \]
+
+    With \(\tau=\tau_{e}r/r_{e}\) and \(G=A(r-r_{0})/[r(r+B)]\),
+
+    \[
+    A=\frac{\lambda_{l}\Delta T}{\rho_{l}h_{lv}}\frac{4\sin\theta}{\theta(1-\cos\theta)^{2}(2+\cos\theta)}
+    \]
+
+    \[
+    B=\frac{4\lambda_{l}}{\theta\sin\theta}\frac{\delta_{c}}{\lambda_{c}}+\frac{2\lambda_{l}\sin\theta}{\alpha_{i}\,\theta(1-\cos\theta)}.
+    \]
+
+    Printed Eq. (13) drops \(\alpha_{i}\) from the second term of \(B\). That term would then be a fraction of a meter. Restoring \(\alpha_{i}\) follows Eq. (9) and keeps \(B\) on the nanometre scale of the coating term. Eq. (14) for \(\tau_{e}\) is unchanged once \(B\) is corrected.
+
+    Nucleation radius \(r_{n}\) maximises the availability. The angular weight \((1-\cos\phi)^{2}/\sin^{4}\phi\) equals \(1/(1+\cos\phi)^{2}\). Then
+
+    \[
+    \rho_{n}=\frac{0.037}{r_{n}^{2}},\qquad r_{e}=\frac{r_{n}}{2\sqrt{0.037}}.
+    \]
+
+    Rivulet mass flow. \(F_{\theta}\) is the cross-section integral of \((\mathrm{local\ thickness}/\delta)^{3}\). Quadrature is used because the printed algebraic \(F_{\theta}\) cancels to \(0/0\) as \(\theta\to 0\). The quadrature gives \(F(0)=16/35\), matches the printed expression at finite angle, and recovers the flooding flow at \(\theta=\pi/2\):
+
+    \[
+    \dot{m}=F_{\theta}\,\frac{\rho_{l}(\rho_{l}-\rho_{v})g\delta^{3}L_{F}}{3\mu_{l}},\qquad
+    \dot{m}_{\mathrm{cr}}=\frac{\pi}{128}\frac{\rho_{l}(\rho_{l}-\rho_{v})g L_{F}^{4}}{\mu_{l}}.
+    \]
+
+    The film closure holds the contact angle fixed at the value implied by the outlet thickness and integrates
+
+    \[
+    H=F_{\theta}\frac{\rho_{l}(\rho_{l}-\rho_{v})g}{\mu_{l}}\int_{0}^{\delta}\frac{t^{3}}{a+bt}\,\mathrm{d}t,
+    \]
+
+    with \(a=\lambda_{l}\Delta T\sin\theta/(h_{lv}\theta)\) and \(b=\dot{m}'_{\sigma}/L_{F}\). This is the integral form of Eqs. (23)–(24), including \(\dot{m}'_{\sigma}=0\). A migrating-angle derivative is not substituted for that closure. Flooding is \(\delta=L_{F}/2\). The reported ratio is \(H/H_{\mathrm{flood}}\), a height ratio. Past that limit the flux is undefined.
+
+    \[
+    \dot{m}'_{\sigma}=\frac{q_{\mathrm{DWC}}L_{D}}{h_{lv}},\qquad
+    q_{\mathrm{FWC}}=\frac{(\dot{m}-\dot{m}'_{\sigma}H)h_{lv}}{H L_{F}}.
+    \]
+
+    Pure-DWC departure is printed Eq. (28). Figure 7a instead fixes \(r_{\max}=1.25\,\mathrm{mm}\), as its caption states:
+
+    \[
+    r_{\max}=\frac{12}{\pi^{2}}\sqrt{\frac{\sigma_{lv}(\cos\theta_{r}-\cos\theta_{a})}{\rho_{l}g(1-\cos\theta)^{2}(2+\cos\theta)}}.
+    \]
+
+    Disk stripes use \(\lfloor 2R/(L_{D}+L_{F})\rfloor\) periods and keep centers inside the disk. Edge fractions stay the paper's area approximation. `smooth_plate_flux` is a rectangular-plate extension, not Eq. (29).
+
+    Figure 7a is still about 27–39% above the sampled model curve. Refining the quadrature does not remove it, and agreement of the shared Kim–Kim baseline with DWCmod does not validate Croce's nucleation and sweeping combination. The equations are not rescaled to hide that gap.
 
     ## Lee 2020
 
-    | Equations | Implemented behavior | Audit decision |
-    |---|---|---|
-    | 1-2 | Departure diameter from gravity/capillary balance | Auxiliary function takes radians, returns diameter, and uses the specified average angle explicitly |
-    | 3.1-3.4a | Sensible + latent = film conduction, solved for interface temperature | Saturated air only. Average Nu=2 local Nu. Moisture polynomial Celsius input; interpreted as humidity ratio. No arbitrary RH extrapolation |
-    | 4-5 | Latent condensation mass, scaled by hydrophilic area | Baselines remain separate: measured .400 g/h, paper theory .355 g/h, or independently computed transport result |
-    | 6-7 | `.695*(1-exp(-4.2488*L))^6.744` grams plus FWC contribution | Figure 11 shows grams for four-hour recovery despite dotted-m notation. Convert output to kg, and divide by 14400 only when reporting average kg/s |
+    Vertical-plate departure diameter \(b\), from the capillary–gravity balance with \(\sin\alpha=1\):
 
-    The independent energy balance assumes wall=5 C (coolant inlet is the measured 5 C quantity). Fixed properties: water k=.58 W/mK, mu=.001307 Pa s, rho=999.7 kg/m3, hfg=2.477e6 J/kg; air rho=1.23 kg/m3, k=.0253 W/mK, mu=1.79e-5 Pa s, cp=1006 J/kg/K, Pr=.71. These rounded engineering inputs are approximations and are not silently fitted to reproduce .355 g/h.
+    \[
+    \frac{24}{\pi^{3}}\sigma_{lv} b(\cos\theta_{r}-\cos\theta_{a})=\rho_{l}gV
+    \]
 
-    Finite geometry starts with DWC at the left edge, clips the final stripe, and counts each internal boundary once. An optional periodic approximation uses SAR=LF/(LD+LF) and interface length=2A/(LD+LF). Edge alignment is not uniquely specified by the paper. The design envelope is an implementation restriction (minimum .5 mm widths, SAR .50-.85), not a fully reconstructed printing-process feasibility map.
+    \[
+    V=\frac{\pi b^{3}}{24}\frac{2-3\cos\theta_{\mathrm{avg}}+\cos^{3}\theta_{\mathrm{avg}}}{\sin^{3}\theta_{\mathrm{avg}}}.
+    \]
+
+    The paper's angles give \(b\approx 0.5\,\mathrm{mm}\). The design search therefore stops at a \(0.5\,\mathrm{mm}\) stripe width. Saturated-air film balance:
+
+    \[
+    q_{v}+q_{L}=q_{d},\qquad
+    q_{v}=h_{v}(T_{\infty}-T_{i}),\qquad
+    q_{L}=h_{v}\frac{h_{lv}}{c_{p}}(\omega_{\infty}-\omega_{i}),\qquad
+    q_{d}=\frac{\lambda_{l}}{\delta}(T_{i}-T_{w})
+    \]
+
+    \[
+    \mathrm{Nu}_{x}=\frac{0.3387\,\mathrm{Re}_{x}^{1/2}\mathrm{Pr}^{1/3}}{\left[1+(0.0468/\mathrm{Pr})^{2/3}\right]^{1/4}},\qquad
+    \overline{\mathrm{Nu}}_{x}=2\,\mathrm{Nu}_{x}
+    \]
+
+    \[
+    \omega=3.7444\times 10^{-3}+0.3078\times 10^{-3}T+0.0046\times 10^{-3}T^{2}+0.0004\times 10^{-3}T^{3}
+    \]
+
+    \[
+    \delta=\left[\frac{4\lambda_{l}\mu_{l}(T_{\infty}-T_{w})L}{g\rho_{l}(\rho_{l}-\rho_{a})h_{lv}}\right]^{1/4}
+    \]
+
+    \(T\) in \(\omega\) is Celsius. The transport calculation uses wall temperature \(5^{\circ}\mathrm{C}\), equal to the stated coolant inlet. Figure 6 labels its theoretical curve at \(T_{w}=9^{\circ}\mathrm{C}\), so this balance is not forced to the paper's \(0.355\,\mathrm{g/h}\) line. Water properties: \(\lambda=0.58\), \(\mu=0.001307\), \(\rho=999.7\), \(h_{lv}=2.477\times 10^{6}\). Air: \(\rho=1.23\), \(\lambda=0.0253\), \(\mu=1.79\times 10^{-5}\), \(c_{p}=1006\), \(\mathrm{Pr}=0.71\).
+
+    Film mass on the specimen is \(\mathrm{SAR}\) times a chosen baseline. The baselines stay separate: measured \(0.400\,\mathrm{g/h}\), the paper's theoretical \(0.355\,\mathrm{g/h}\), or this transport result. Dropwise collection over four hours, Eq. (6), is in grams in the paper and is stored here in kilograms:
+
+    \[
+    m_{\mathrm{DWC,4h}}=0.000695\left(1-e^{-4.2488 L_{\mathrm{interface}}}\right)^{6.744}.
+    \]
+
+    Divide by \(14400\,\mathrm{s}\) only when reporting an average rate. Finite geometry starts with a hydrophobic stripe at the left edge, clips the last stripe, and counts each internal boundary once. The periodic option uses \(\mathrm{SAR}=L_{F}/(L_{D}+L_{F})\) and interface length \(2A/(L_{D}+L_{F})\). The width and SAR limits are an implementation envelope, not a reconstructed printer map.
 
     ## Differentiation and numerical domain
 
-    Fixed Gauss-Legendre nodes are mapped to log-radius intervals. Q*n is simplified before evaluation to cancel the critical-radius 0*infinity product. SciPy adaptive integration provides the reference path. No Autograd derivative is taken through an opaque SciPy iteration.
+    Gauss–Legendre nodes are fixed, then mapped onto logarithmic radius. The product \(Q n\) is reduced before evaluation so the critical-radius endpoint is not a \(0\times\infty\) form. Adaptive SciPy integration is the reference. No derivative is taken through an opaque SciPy iteration.
 
-    For scalar roots, first derivatives use dz/dp=-(partial F/partial p)/(partial F/partial z). Brackets and branch choices remain nondifferentiable at switches. The current derivative contract is first order, fixed fluid properties, interior roots and non-flooded geometry. Values at a departure-mode switch, stripe-count change, or flooding boundary must not be interpreted as ordinary smooth design gradients.
+    A scalar root uses \(\mathrm{d}z/\mathrm{d}p=-(\partial F/\partial p)/(\partial F/\partial z)\). Switches of departure mode, stripe count, and flooding are not differentiable. The derivative contract is first order, at fixed properties, on an interior non-flooded root.
     """)
     return
 
@@ -3206,7 +3424,7 @@ def _(mo):
     - Croce & Suzzi (2024). *Optimization of Dropwise Condensation of Steam over Hybrid Hydrophobic-Hydrophilic Surfaces via Enhanced Statistically Based Heat Transfer Modelization*. [DOI](https://doi.org/10.3390/en17112742).
     - Lee, Lee & Lee (2020). *Improved humid air condensation heat transfer through promoting condensate drainage on vertically stripe patterned bi-philic surfaces*. [DOI](https://doi.org/10.1016/j.ijheatmasstransfer.2020.120206).
 
-    The source PDFs remain local and are ignored by Git. Approximate model-line readings and cited scientific formulas are included; full paper text and figures are not redistributed.
+    The three source PDFs are in the repository root. Approximate model-line readings and cited scientific formulas are included in the notebook.
 
     ## Supporting models
 
