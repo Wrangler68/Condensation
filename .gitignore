@@ -9,3 +9,5 @@ __marimo__/
 *.pdf
 output/
 .env
+.uv-tools/
+_site/

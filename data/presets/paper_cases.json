@@ -1,9 +1,0 @@
-{
-  "units":"SI except explicitly suffixed fields",
-  "geometry_note":"Disk radius 0.01 m is an explicit working assumption: the attached Xie/Croce texts define R but do not state its value in the inspected model/validation sections. Change it to match the original Peng specimen when confirmed.",
-  "xie_fig4":{"temperature_K":333.15,"subcooling_K":5,"theta_deg":110,"advancing_deg":120,"receding_deg":105,"coating_thickness_m":1e-9,"coating_conductivity_W_mK":0.2,"nucleation_density_m2":2.5e11,"fwc_width_m":0.0002},
-  "xie_fig5":{"temperature_K":373.15,"theta_deg":120,"advancing_deg":142,"receding_deg":102,"coating_resistance_m2K_W":5e-9,"nucleation_density_m2":2.5e11,"dwc_width_m":0.00046,"fwc_width_m":0.00044},
-  "croce_fig7":{"temperature_K":373.15,"theta_deg":120,"coating_resistance_m2K_W":3.39e-7,"rmax_m":0.00125},
-  "croce_fig8b":{"temperature_K":373.15,"theta_deg":120,"coating_resistance_m2K_W":3.39e-7,"dwc_width_m":0.00055,"fwc_width_m":0.00045},
-  "lee":{"air_C":14,"relative_humidity":1,"air_velocity_m_s":0.6,"coolant_inlet_C":5,"assumed_wall_C":5,"width_m":0.04,"height_m":0.04,"duration_s":14400,"measured_fwc_g_h":0.4,"paper_theory_fwc_g_h":0.355,"reported_best_observed_kg":0.00184,"reported_best_predicted_kg":0.002}
-}

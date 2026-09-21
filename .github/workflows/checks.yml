@@ -1,25 +1,81 @@
-name: HeatTransfer checks
+name: Verify and publish HeatTransfer
 on:
   push:
     branches: [HeatTransfer]
   pull_request:
     branches: [HeatTransfer]
+  workflow_dispatch:
 permissions:
   contents: read
+env:
+  UV_PYTHON: '3.12'
+concurrency:
+  group: heattransfer-pages-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  numerical-and-notebooks:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
+      - run: uv python install 3.12
+      - name: Check standalone notebook
+        run: uv run --with marimo==0.24.2 marimo check --strict HeatTransfer.py
+      - name: Run embedded numerical regression suite
+        run: uv run HeatTransfer.py --self-test
+      - name: Export interactive WebAssembly notebook
+        run: uv run --with marimo==0.24.2 marimo export html-wasm HeatTransfer.py -o tmp/wasm/HeatTransfer.html --mode run --no-sandbox -f
+      - name: Make one HTML with versioned CDN runtime
+        run: |
+          uv run --no-project python - <<'PY'
+          from pathlib import Path
+          import re
+
+          source = Path('tmp/wasm/HeatTransfer.html').read_text(encoding='utf-8')
+          cdn = 'https://cdn.jsdelivr.net/npm/@marimo-team/frontend@0.24.2/dist/'
+          source = re.sub(r'((?:src|href)=")\./', lambda m: m[1] + cdn, source)
+          # Module workers require a same-origin entry point. A blob entry imports the
+          # version-pinned CDN module, whose own relative imports stay relative to the CDN.
+          shim = '''<script>
+          (() => {
+            const NativeWorker = window.Worker;
+            window.Worker = class extends NativeWorker {
+              constructor(url, options) {
+                const target = new URL(url, document.baseURI);
+                if (target.origin !== location.origin && options?.type === 'module') {
+                  const entry = new Blob(['import ' + JSON.stringify(target.href) + ';'], {type: 'text/javascript'});
+                  super(URL.createObjectURL(entry), options);
+                } else {
+                  super(url, options);
+                }
+              }
+            };
+          })();
+          </script>'''
+          source = source.replace('<head>', '<head>\n' + shim, 1)
+          assert not re.search(r'(?:src|href)="\./', source)
+          Path('HeatTransfer.html').write_text(source, encoding='utf-8')
+          print('Single HTML:', len(source.encode()), 'bytes; no local asset dependencies')
+
+          site = Path('_site')
+          site.mkdir(exist_ok=True)
+          (site / 'index.html').write_bytes(Path('HeatTransfer.html').read_bytes())
+          (site / 'HeatTransfer.py').write_bytes(Path('HeatTransfer.py').read_bytes())
+          PY
+      - uses: actions/upload-pages-artifact@v4
         with:
-          enable-cache: true
-      - run: uv sync --locked --extra dev
-      - run: uv run pytest -q
-      - run: uv run ruff check src tests scripts
-      - run: uv run marimo check --strict notebooks/01_xie2020.py notebooks/02_croce2024.py notebooks/03_lee2020.py notebooks/04_compare_optimize.py
-      - run: mkdir -p output
-      - run: uv run marimo export html notebooks/01_xie2020.py -o output/xie.html
-      - run: uv run marimo export html notebooks/02_croce2024.py -o output/croce.html
-      - run: uv run marimo export html notebooks/03_lee2020.py -o output/lee.html
-      - run: uv run marimo export html notebooks/04_compare_optimize.py -o output/design.html
+          path: _site
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/HeatTransfer'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
