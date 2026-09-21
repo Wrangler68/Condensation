@@ -13,7 +13,7 @@ import marimo
 
 __generated_with = "0.24.2"
 app = marimo.App(
-    width="full",
+    width="medium",
     app_title="HeatTransfer · Biphilic condensation",
 )
 
@@ -23,6 +23,33 @@ def _():
     import marimo as mo
 
     return (mo,)
+
+
+@app.cell
+def _(mo):
+    def _row(items, minimum=180):
+        # Use the available cell width, including when the outline is open.
+        return mo.Html(
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,'
+            f'minmax(min(100%, {minimum}px), 1fr));gap:1rem;width:100%">'
+            + "".join(
+                mo.vstack([item]).style({"min-width": "0"}).text for item in items
+            )
+            + "</div>"
+        )
+
+    def _controls(fields):
+        return mo.Html(
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,'
+            'minmax(min(100%, 280px), 1fr));gap:1rem;align-items:center">'
+            + "".join('<div style="min-width:0">{' + field + "}</div>" for field in fields)
+            + "</div>"
+        )
+
+    from types import SimpleNamespace
+
+    ht_layout = SimpleNamespace(row=_row, controls=_controls)
+    return (ht_layout,)
 
 
 @app.cell
@@ -1286,21 +1313,22 @@ def _():
 
         def style(fig, title, xlabel=None, ylabel=None):
             fig.update_layout(
-                title=dict(text=title, font=dict(size=20)),
+                title=dict(text=title, font=dict(size=16), automargin=True),
                 template="plotly_white",
                 colorway=COLORS,
                 font=dict(family="Arial", color="#24364b"),
                 paper_bgcolor="#ffffff",
                 plot_bgcolor="#ffffff",
-                height=420,
-                margin=dict(l=55, r=25, t=65, b=55),
-                legend=dict(orientation="h", y=1.12, x=0),
+                autosize=True,
+                height=360,
+                margin=dict(l=55, r=20, t=55, b=55),
+                legend=dict(orientation="h", y=-0.25, x=0, yanchor="top"),
                 hovermode="x unified",
             )
             if xlabel:
-                fig.update_xaxes(title_text=xlabel)
+                fig.update_xaxes(title_text=xlabel, automargin=True)
             if ylabel:
-                fig.update_yaxes(title_text=ylabel)
+                fig.update_yaxes(title_text=ylabel, automargin=True)
             return fig
 
         def curves(x, series, title, xlabel, ylabel, logx=False, logy=False):
@@ -1352,7 +1380,7 @@ def _():
             style(fig, "Stripe geometry · four periods", "Across surface (mm)", "Downhill (mm)")
             fig.update_xaxes(range=[0, 4 * pitch * 1e3])
             fig.update_yaxes(range=[height * 1e3, 0])
-            fig.update_layout(height=240)
+            fig.update_layout(height=280, margin=dict(b=100), legend=dict(y=-0.6))
             return fig
 
         def heatmap(x, y, z, title, xlabel, ylabel, zlabel):
@@ -1624,11 +1652,9 @@ def _(s1_mo):
 
 
 @app.cell
-def _(s1_mo):
+def _(ht_layout, s1_mo):
     s1_controls = (
-        s1_mo.md(
-            "\n    {ld} &nbsp; {lf}\n\n    {dt}\n\n    {coating}\n\n    {mode} &nbsp; {convention}\n    "
-        )
+        ht_layout.controls(['ld', 'lf', 'dt', 'coating', 'mode', 'convention'])
         .batch(
             **{
                 "ld": s1_mo.ui.number(0.05, 4.0, step=0.05, value=0.2, label="DWC width (mm)"),
@@ -1690,8 +1716,8 @@ def _(s1_Geometry, s1_controls, s1_model, s1_replace):
 
 
 @app.cell
-def _(s1_mo, s1_result):
-    s1_mo.hstack(
+def _(ht_layout, s1_mo, s1_result):
+    ht_layout.row(
         [
             s1_mo.stat(label="Total heat flux", value=f"{s1_result.heat_flux / 1000:,.1f} kW/m²"),
             s1_mo.stat(label="Overall HTC", value=f"{s1_result.htc / 1000:,.1f} kW/m²K"),
@@ -1708,7 +1734,7 @@ def _(s1_mo, s1_result):
 
 
 @app.cell
-def _(s1_curves, s1_geometry, s1_mo, s1_profile, s1_stripe_schematic):
+def _(ht_layout, s1_curves, s1_geometry, s1_mo, s1_profile, s1_stripe_schematic):
     s1_geometry_chart = s1_stripe_schematic(s1_geometry.dwc_width, s1_geometry.fwc_width)
     s1_radius_chart = s1_curves(
         s1_profile["x"] * 1000.0,
@@ -1726,8 +1752,8 @@ def _(s1_curves, s1_geometry, s1_mo, s1_profile, s1_stripe_schematic):
     )
     s1_mo.vstack(
         [
-            s1_geometry_chart,
-            s1_mo.hstack([s1_mo.ui.plotly(s1_radius_chart), s1_mo.ui.plotly(s1_flux_chart)]),
+            s1_mo.ui.plotly(s1_geometry_chart),
+            ht_layout.row([s1_mo.ui.plotly(s1_radius_chart), s1_mo.ui.plotly(s1_flux_chart)], minimum=420),
         ]
     )
     return
@@ -1872,9 +1898,9 @@ def _(s2_mo):
 
 
 @app.cell
-def _(s2_mo):
+def _(ht_layout, s2_mo):
     s2_controls = (
-        s2_mo.md("\n    {ld} &nbsp; {lf}\n\n    {dt}\n\n    {coating}\n\n    {linear}\n    ")
+        ht_layout.controls(['ld', 'lf', 'dt', 'coating', 'linear'])
         .batch(
             **{
                 "ld": s2_mo.ui.number(0.05, 2.0, step=0.01, value=0.55, label="DWC width (mm)"),
@@ -1928,7 +1954,7 @@ def _(
 
 
 @app.cell
-def _(s2_mo, s2_result, s2_rn):
+def _(ht_layout, s2_mo, s2_result, s2_rn):
     s2_status = (
         "Within modeled drainage capacity"
         if s2_result.valid
@@ -1937,7 +1963,7 @@ def _(s2_mo, s2_result, s2_rn):
     s2_mo.vstack(
         [
             s2_mo.callout(s2_status, kind="success" if s2_result.valid else "warn"),
-            s2_mo.hstack(
+            ht_layout.row(
                 [
                     s2_mo.stat(
                         label="Total heat flux",
@@ -1964,6 +1990,7 @@ def _(s2_mo, s2_result, s2_rn):
 
 @app.cell
 def _(
+    ht_layout,
     s2_conditions,
     s2_critical_radius,
     s2_curves,
@@ -2021,7 +2048,7 @@ def _(
         True,
         True,
     )
-    s2_mo.hstack([s2_mo.ui.plotly(s2_populations), s2_mo.ui.plotly(s2_resistances)])
+    ht_layout.row([s2_mo.ui.plotly(s2_populations), s2_mo.ui.plotly(s2_resistances)], minimum=420)
     return
 
 
@@ -2126,9 +2153,9 @@ def _(s3_mo):
 
 
 @app.cell
-def _(s3_mo):
+def _(ht_layout, s3_mo):
     s3_controls = (
-        s3_mo.md("\n    {ld} &nbsp; {lf}\n\n    {baseline}\n\n    {finite}\n    ")
+        ht_layout.controls(['ld', 'lf', 'baseline', 'finite'])
         .batch(
             **{
                 "ld": s3_mo.ui.number(0.5, 3.0, step=0.1, value=0.6, label="DWC width (mm)"),
@@ -2165,10 +2192,10 @@ def _(s3_controls, s3_model):
 
 
 @app.cell
-def _(s3_mo, s3_result):
+def _(ht_layout, s3_mo, s3_result):
     s3_mo.vstack(
         [
-            s3_mo.hstack(
+            ht_layout.row(
                 [
                     s3_mo.stat(
                         label="Collected in four hours",
@@ -2198,7 +2225,7 @@ def _(s3_mo, s3_result):
 
 
 @app.cell
-def _(s3_curves, s3_go, s3_mo, s3_model, s3_np, s3_result, s3_style):
+def _(ht_layout, s3_curves, s3_go, s3_mo, s3_model, s3_np, s3_result, s3_style):
     s3_lengths = s3_np.linspace(0, 2.1, 150)
     s3_families = {
         f"SAR {s3_sar:.0%}": s3_np.array(
@@ -2234,7 +2261,7 @@ def _(s3_curves, s3_go, s3_mo, s3_model, s3_np, s3_result, s3_style):
         )
     )
     s3_style(s3_bars, "Recovery contributions", ylabel="Collected mass (g / 4 h)")
-    s3_mo.hstack([s3_mo.ui.plotly(s3_recovery_plot), s3_bars])
+    ht_layout.row([s3_mo.ui.plotly(s3_recovery_plot), s3_mo.ui.plotly(s3_bars)], minimum=420)
     return
 
 
@@ -2333,9 +2360,9 @@ def _(s4_mo):
 
 
 @app.cell
-def _(s4_mo):
+def _(ht_layout, s4_mo):
     s4_controls = (
-        s4_mo.md("\n    {dt}\n\n    {coating}\n    ")
+        ht_layout.controls(['dt', 'coating'])
         .batch(
             **{
                 "dt": s4_mo.ui.slider(2.0, 10.0, step=1.0, value=6.0, label="Steam subcooling (K)"),
