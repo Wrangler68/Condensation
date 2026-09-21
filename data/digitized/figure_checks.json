@@ -1,0 +1,14 @@
+{
+  "provenance": "Manual approximate readings of published MODEL curves from attached PDFs rendered at 1.7x, 2026-09-21. Not experimental raw data; no marker data fitted. Pixel-based visual readings have conservative 15-20 kW/m2 uncertainty.",
+  "points": [
+    {"case":"Croce Fig.7a", "page":11, "subcooling_K":2, "paper_flux_W_m2":180000, "reading_uncertainty_W_m2":15000},
+    {"case":"Croce Fig.7a", "page":11, "subcooling_K":4, "paper_flux_W_m2":375000, "reading_uncertainty_W_m2":15000},
+    {"case":"Croce Fig.7a", "page":11, "subcooling_K":6, "paper_flux_W_m2":580000, "reading_uncertainty_W_m2":15000},
+    {"case":"Croce Fig.8b", "page":12, "subcooling_K":2, "paper_flux_W_m2":210000, "reading_uncertainty_W_m2":20000},
+    {"case":"Croce Fig.8b", "page":12, "subcooling_K":4, "paper_flux_W_m2":435000, "reading_uncertainty_W_m2":20000},
+    {"case":"Croce Fig.8b", "page":12, "subcooling_K":6, "paper_flux_W_m2":660000, "reading_uncertainty_W_m2":20000},
+    {"case":"Xie Fig.5a", "page":10, "subcooling_K":2, "paper_flux_W_m2":190000, "reading_uncertainty_W_m2":15000},
+    {"case":"Xie Fig.5a", "page":10, "subcooling_K":4, "paper_flux_W_m2":385000, "reading_uncertainty_W_m2":15000},
+    {"case":"Xie Fig.5a", "page":10, "subcooling_K":6, "paper_flux_W_m2":585000, "reading_uncertainty_W_m2":15000}
+  ]
+}

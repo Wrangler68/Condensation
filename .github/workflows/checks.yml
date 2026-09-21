@@ -1,0 +1,25 @@
+name: HeatTransfer checks
+on:
+  push:
+    branches: [HeatTransfer]
+  pull_request:
+    branches: [HeatTransfer]
+permissions:
+  contents: read
+jobs:
+  numerical-and-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run pytest -q
+      - run: uv run ruff check src tests scripts
+      - run: uv run marimo check --strict notebooks/01_xie2020.py notebooks/02_croce2024.py notebooks/03_lee2020.py notebooks/04_compare_optimize.py
+      - run: mkdir -p output
+      - run: uv run marimo export html notebooks/01_xie2020.py -o output/xie.html
+      - run: uv run marimo export html notebooks/02_croce2024.py -o output/croce.html
+      - run: uv run marimo export html notebooks/03_lee2020.py -o output/lee.html
+      - run: uv run marimo export html notebooks/04_compare_optimize.py -o output/design.html
