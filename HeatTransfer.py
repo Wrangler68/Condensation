@@ -13,7 +13,7 @@ import marimo
 
 __generated_with = "0.24.2"
 app = marimo.App(
-    width="wide",
+    width="full",
     app_title="HeatTransfer · Biphilic condensation",
 )
 
