@@ -1,6 +1,6 @@
 # HeatTransfer review notes
 
-Notes from the review of `HeatTransfer.py` on the `HeatTransfer` branch. The three source PDFs are in the repository root. All 17 embedded numerical checks still pass. Separate reads of Xie (2020), Croce (2024), and Lee (2020) found no new formula that the code implements incorrectly.
+This is a Grok 4.7 review of Astra's work on `HeatTransfer.py`, on the `HeatTransfer` branch. The three source PDFs are in the repository root. All 17 embedded numerical checks still pass. Separate reads of Xie (2020), Croce (2024), and Lee (2020) found no new formula that the code implements incorrectly.
 
 ## Serious corrections
 
