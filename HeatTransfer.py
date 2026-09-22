@@ -73,7 +73,7 @@ def _(mo):
                 ".katex-display{overflow-x:auto;overflow-y:hidden;max-width:100%;"
                 "padding-bottom:.2rem;margin:.55rem 0;}"
                 "marimo-tex{max-width:100%;}"
-                "@media (max-width:720px){h1,h2,h3{padding-left:2.6rem;padding-right:.4rem;}}"
+                "@media (max-width:720px){h1,h2,h3{padding-left:2.6rem;padding-right:2.8rem;}}"
                 "</style>"
             ),
             mo.md("""
@@ -2249,7 +2249,7 @@ def _(ht_lee2020, ht_plots, ht_studies):
 @app.cell
 def _(s3_mo):
     s3_mo.md(
-        "\n    # Recovering water from humid air\n    **Lee et al. · 2020** / A four-hour condensate collection experiment\n\n    [Paper](https://doi.org/10.1016/j.ijheatmasstransfer.2020.120206).\n    Saturated air at 14–15 °C, 0.6 m/s, over a 40 × 40 mm specimen; coolant inlet 5 °C.\n    Eq. (6) predicts **collected mass over four hours**, not a universal mass-transfer rate.\n    The 5 °C wall temperature in the transport calculation is an explicit approximation.\n\n    Measured FWC baseline: **0.400 g/h**. Paper's theoretical baseline: **0.355 g/h**.\n    These are selectable below; the film energy balance is also calculated independently.\n    "
+        "\n    # Recovering water from humid air\n    **Lee et al. · 2020** / A four-hour condensate collection experiment\n\n    [Paper](https://doi.org/10.1016/j.ijheatmasstransfer.2020.120206).\n    Saturated air at 14–15 °C, 0.6 m/s, over a 40 × 40 mm specimen; coolant inlet 5 °C.\n    Eq. (6) predicts **collected mass over four hours**, not a universal mass-transfer rate.\n    The 5 °C wall temperature in the transport calculation is an explicit approximation.\n    With the recorded properties that balance gives about **0.393 g/h** at 5 °C and **0.245 g/h** at 9 °C.\n    Fig. 6 labels a 9 °C theory curve and quotes **0.355 g/h**; that quoted slope is a separate baseline.\n\n    Measured FWC baseline: **0.400 g/h**. Paper's quoted theoretical baseline: **0.355 g/h**.\n    These are selectable below; the film energy balance is also calculated independently.\n    "
     )
     return
 
@@ -3394,7 +3394,7 @@ def _(mo):
     \delta=\left[\frac{4\lambda_{l}\mu_{l}(T_{\infty}-T_{w})L}{g\rho_{l}(\rho_{l}-\rho_{a})h_{lv}}\right]^{1/4}
     \]
 
-    \(T\) in \(\omega\) is Celsius. The transport calculation uses wall temperature \(5^{\circ}\mathrm{C}\), equal to the stated coolant inlet. Figure 6 labels its theoretical curve at \(T_{w}=9^{\circ}\mathrm{C}\), so this balance is not forced to the paper's \(0.355\,\mathrm{g/h}\) line. Water properties: \(\lambda=0.58\), \(\mu=0.001307\), \(\rho=999.7\), \(h_{lv}=2.477\times 10^{6}\). Air: \(\rho=1.23\), \(\lambda=0.0253\), \(\mu=1.79\times 10^{-5}\), \(c_{p}=1006\), \(\mathrm{Pr}=0.71\).
+    \(T\) in \(\omega\) is Celsius. The transport calculation uses wall temperature \(5^{\circ}\mathrm{C}\), equal to the stated coolant inlet, and gives about \(0.393\,\mathrm{g/h}\). The same balance at the Fig. 6 label \(T_{w}=9^{\circ}\mathrm{C}\) gives about \(0.245\,\mathrm{g/h}\). It equals the paper's quoted \(0.355\,\mathrm{g/h}\) near \(6.1^{\circ}\mathrm{C}\), so that quoted slope stays a separate baseline. Water properties: \(\lambda=0.58\), \(\mu=0.001307\), \(\rho=999.7\), \(h_{lv}=2.477\times 10^{6}\). Air: \(\rho=1.23\), \(\lambda=0.0253\), \(\mu=1.79\times 10^{-5}\), \(c_{p}=1006\), \(\mathrm{Pr}=0.71\).
 
     Film mass on the specimen is \(\mathrm{SAR}\) times a chosen baseline. The baselines stay separate: measured \(0.400\,\mathrm{g/h}\), the paper's theoretical \(0.355\,\mathrm{g/h}\), or this transport result. Dropwise collection over four hours, Eq. (6), is in grams in the paper and is stored here in kilograms:
 
